@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>국어의 발견: 어휘의 탑 (심화 모드)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background: #2c3e50; color: #333; margin: 0; padding: 20px; }
+        #game-container { max-width: 650px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .stat-box { display: flex; justify-content: space-around; background: #ecf0f1; padding: 15px; border-radius: 12px; margin-bottom: 25px; border: 2px solid #bdc3c7; }
+        .stat-item { text-align: center; }
+        .stat-label { font-size: 0.8em; color: #7f8c8d; font-weight: bold; }
+        .stat-value { font-size: 1.2em; color: #2c3e50; font-weight: bold; }
+        #battle-screen { min-height: 350px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #eee; border-radius: 15px; padding: 20px; background: #fdfdfd; position: relative; }
+        #target-name { font-size: 1.5em; font-weight: bold; margin-bottom: 15px; color: #e74c3c; }
+        .quiz-area { font-size: 1.3em; line-height: 1.6; margin: 20px 0; text-align: center; min-height: 80px; font-weight: bold; }
+        .hard-mode { color: #8e44ad; } /* 심화 퀴즈용 보라색 */
+        .normal-mode { color: #2980b9; }
+        button { padding: 12px 25px; margin: 8px; cursor: pointer; border: none; border-radius: 8px; background: #3498db; color: white; font-size: 1em; font-weight: bold; transition: 0.1s; box-shadow: 0 4px 0 #2980b9; user-select: none; }
+        button:hover { background: #2980b9; transform: translateY(-2px); }
+        button:active { transform: translateY(2px); box-shadow: none; }
+        #log { font-size: 0.9em; color: #666; margin-top: 20px; height: 100px; overflow-y: auto; border-top: 2px dashed #eee; padding-top: 15px; text-align: left; }
+        .academy-footer { margin-top: 40px; padding: 20px; border-top: 1px solid #eee; text-align: center; }
+        .bonus-timer { font-size: 2em; color: #e74c3c; font-weight: bold; margin-bottom: 10px; }
+        .click-count { font-size: 1.5em; color: #f39c12; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h1 style="margin: 0; color: #2c3e50;">🏹 국어 용사: 어휘의 탑</h1>
+        <p style="color: #7f8c8d; font-size: 0.9em;">보라색 심화 퀴즈를 맞히면 2개의 능력이 한꺼번에 상승합니다!</p>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-item"><div class="stat-label">❤️ HP</div><div class="stat-value" id="p-hp">150</div></div>
+        <div class="stat-item"><div class="stat-label">⚔️ ATK</div><div class="stat-value" id="p-atk">15</div></div>
+        <div class="stat-item"><div class="stat-label">🛡️ DEF</div><div class="stat-value" id="p-def">10</div></div>
+        <div class="stat-item"><div class="stat-label">🚩 ROUND</div><div class="stat-value" id="round">1</div></div>
+    </div>
+
+    <div id="battle-screen">
+        <div id="target-name">준비되셨나요?</div>
+        <div class="quiz-area normal-mode" id="display-area">전체 퀴즈 중 무작위로 3문제가 출제됩니다.</div>
+        <div id="action-buttons">
+            <button onclick="startGame()">모험 시작하기</button>
+        </div>
+    </div>
+
+    <div id="log">전투 기록이 표시됩니다.</div>
+
+    <div class="academy-footer">
+        <p style="font-weight: bold; margin:0;">국어의 발견</p>
+        <p style="font-size: 0.8em; color: #95a5a6;">잠실 송파 국어 전문 교육기관</p>
+    </div>
+</div>
+
+<script>
+    const bossList = ["고블린", "홉고블린", "사무라이", "고스트", "밴시", "듀라한", "뱀파이어", "골렘", "데스나이트", "레드드래곤"];
+    
+    const quizData = [
+        // 일반 퀴즈 (Normal)
+        { q: "‘시나브로’의 뜻은?", a: ["모르는 사이에 조금씩", "바람이 부는 모양처럼"], correct: 0, level: "normal" },
+        { q: "어이가 없어서 말이 안 나올 때 올바른 표기는?", a: ["어이없다", "어의없다"], correct: 0, level: "normal" },
+        { q: "재산이 넉넉하다는 뜻의 순우리말은?", a: ["가멸다", "가늘다"], correct: 0, level: "normal" },
+        { q: "글씨를 마구 쓴 모양을 뜻하는 말은?", a: ["괴발개발", "개발새발 (둘 다 가능)"], correct: 1, level: "normal" },
+        { q: "‘금일’(今日)의 뜻은?", a: ["오늘", "금요일"], correct: 0, level: "normal" },
+        
+        // 심화 퀴즈 (Hard - 2개 능력치 상승)
+        { q: "[심화] 훈민정음 창제 당시 사라진 글자가 아닌 것은?", a: ["ㆁ(옛이응)", "ㅛ(요)"], correct: 1, level: "hard" },
+        { q: "[심화] 피동 표현이 올바른 것은?", a: ["문이 닫히다", "문이 닫겨지다"], correct: 0, level: "hard" },
+        { q: "[심화] ‘사달’이 났다에서 ‘사달’의 뜻은?", a: ["사고나 탈", "사소한 일"], correct: 0, level: "hard" },
+        { q: "[심화] 문장의 성분 중 꼭 필요한 성분이 아닌 것은?", a: ["부속 성분", "주성분"], correct: 0, level: "hard" },
+        { q: "[심화] ‘결코’라는 부사 뒤에 와야 하는 호응은?", a: ["부정어 (~않다)", "긍정어 (~이다)"], correct: 0, level: "hard" },
+        { q: "[심화] 서류를 검토하고 승인할 때 쓰는 말은?", a: ["결제", "결재"], correct: 1, level: "hard" },
+        { q: "[심화] 시험에서 정답을 골라냈을 때?", a: ["맞히다", "맞추다"], correct: 0, level: "hard" }
+    ];
+
+    let player = { hp: 150, maxHp: 150, atk: 15, def: 10 };
+    let round = 1;
+    let quizCount = 0;
+    let clickCount = 0;
+    let timeLeft = 10;
+    let bonusInterval;
+    let currentRoundPool = [];
+    let currentQuiz = null;
+
+    function updateStats() {
+        document.getElementById('p-hp').innerText = Math.floor(player.hp);
+        document.getElementById('p-atk').innerText = player.atk;
+        document.getElementById('p-def').innerText = player.def;
+        document.getElementById('round').innerText = round;
+    }
+
+    function addLog(msg) {
+        const log = document.getElementById('log');
+        log.innerHTML = `> ${msg}<br>${log.innerHTML}`;
+    }
+
+    function startGame() {
+        round = 1; player.maxHp = 150; player.hp = 150; player.atk = 15; player.def = 10;
+        addLog("🏰 어휘의 탑 모험을 시작합니다!");
+        startRound();
+    }
+
+    function startRound() {
+        quizCount = 0;
+        currentRoundPool = [...quizData].sort(() => Math.random() - 0.5);
+        nextQuiz();
+    }
+
+    function nextQuiz() {
+        if (quizCount < 3) {
+            currentQuiz = currentRoundPool[quizCount];
+            const displayArea = document.getElementById('display-area');
+            document.getElementById('target-name').innerText = `📖 지혜의 시련 (${quizCount + 1}/3)`;
+            displayArea.innerText = currentQuiz.q;
+            
+            // 난이도에 따른 색상 변경
+            if(currentQuiz.level === "hard") {
+                displayArea.className = "quiz-area hard-mode";
+            } else {
+                displayArea.className = "quiz-area normal-mode";
+            }
+
+            let html = "";
+            currentQuiz.a.forEach((ans, idx) => {
+                html += `<button onclick="checkAnswer(${idx})">${ans}</button>`;
+            });
+            document.getElementById('action-buttons').innerHTML = html;
+        } else {
+            startBossBattle();
+        }
+    }
+
+    function applyStatBonus(isHard) {
+        const types = ['atk', 'def', 'hp'];
+        // 무작위로 섞어서 보상 결정
+        const shuffled = types.sort(() => Math.random() - 0.5);
+        
+        const count = isHard ? 2 : 1; // 하드면 2개, 노말이면 1개 상승
+        let msgParts = [];
+
+        for(let i=0; i<count; i++) {
+            const t = shuffled[i];
+            if (t === 'atk') { player.atk += 7; msgParts.push("공격력 +7"); }
+            else if (t === 'def') { player.def += 5; msgParts.push("방어력 +5"); }
+            else { player.maxHp += 25; player.hp = player.maxHp; msgParts.push("최대체력 +25"); }
+        }
+        addLog(`✨ 정답! [${msgParts.join(", ")}] 상승!`);
+    }
+
+    function checkAnswer(sel) {
+        if (sel === currentQuiz.correct) {
+            applyStatBonus(currentQuiz.level === "hard");
+        } else {
+            addLog("❌ 오답입니다. 보상을 얻지 못했습니다.");
+        }
+        quizCount++;
+        updateStats();
+        setTimeout(nextQuiz, 500);
+    }
+
+    function startBossBattle() {
+        const name = bossList[round - 1];
+        let bHp = Math.floor(20 * Math.pow(1.5, round - 1));
+        let bAtk = Math.floor(10 * Math.pow(1.5, round - 1));
+        document.getElementById('target-name').innerText = `👹 ROUND ${round}: ${name}`;
+        document.getElementById('display-area').className = "quiz-area normal-mode";
+        document.getElementById('display-area').innerHTML = `보스 HP: ${bHp} | 공격력: ${bAtk}`;
+        document.getElementById('action-buttons').innerHTML = `<button style="background:#e74c3c;" onclick="resolveBattle(${bHp}, ${bAtk})">공격하기!</button>`;
+    }
+
+    function resolveBattle(bHp, bAtk) {
+        let turns = Math.ceil(bHp / player.atk);
+        let dmg = Math.max(0, (bAtk - player.def) * (turns - 1));
+        player.hp -= dmg;
+        updateStats();
+
+        if (player.hp > 0) {
+            addLog(`⚔️ ${bossList[round-1]} 처치 완료!`);
+            if (round === 10) {
+                document.getElementById('target-name').innerText = "🎉 어휘의 정점!";
+                document.getElementById('display-area').innerText = "최종 보스 레드드래곤을 물리쳤습니다!";
+                document.getElementById('action-buttons').innerHTML = `<button onclick="location.reload()">다시 시작</button>`;
+            } else if (round % 3 === 0) {
+                setupBonusGame();
+            } else {
+                round++;
+                document.getElementById('action-buttons').innerHTML = `<button onclick="startRound()">다음 층으로</button>`;
+            }
+        } else {
+            alert("보스에게 패배했습니다.");
+            location.reload();
+        }
+    }
+
+    function setupBonusGame() {
+        clickCount = 0;
+        timeLeft = 10;
+        const targetClicks = (round === 3) ? 30 : (round === 6) ? 40 : 50;
+        document.getElementById('target-name').innerText = `🔥 보너스 미션! (${targetClicks}회)`;
+        document.getElementById('display-area').innerHTML = `<div class='bonus-timer' id='timer'>10.00</div><div class='click-count' id='counter'>클릭: 0 / ${targetClicks}</div>`;
+        document.getElementById('action-buttons').innerHTML = `<button id='bonus-btn' style='background:#f1c40f; color:black; font-size:1.5em; width:140px; height:140px; border-radius:50%;' onclick='handleBonusClick(${targetClicks})'>PUSH!</button>`;
+        
+        bonusInterval = setInterval(() => {
+            timeLeft -= 0.01;
+            document.getElementById('timer').innerText = timeLeft.toFixed(2);
+            if (timeLeft <= 0) {
+                clearInterval(bonusInterval);
+                finishBonusGame(targetClicks);
+            }
+        }, 10);
+    }
+
+    function handleBonusClick(target) {
+        clickCount++;
+        document.getElementById('counter').innerText = `클릭: ${clickCount} / ${target}`;
+        const btn = document.getElementById('bonus-btn');
+        btn.style.transform = `scale(1.1)`;
+        setTimeout(() => btn.style.transform = `scale(1.0)`, 50);
+    }
+
+    function finishBonusGame(target) {
+        if (clickCount >= target) {
+            let multiplier = (round === 3) ? 2 : (round === 6) ? 2.5 : 3;
+            const bAtk = Math.floor(7 * multiplier);
+            const bDef = Math.floor(5 * multiplier);
+            const bHp = Math.floor(25 * multiplier);
+            player.atk += bAtk; player.def += bDef; player.maxHp += bHp; player.hp = player.maxHp;
+            addLog(`🔥 미션 성공! ${multiplier}배 보너스 적용!`);
+        } else {
+            addLog("🌑 미션 실패...");
+        }
+        round++;
+        updateStats();
+        document.getElementById('action-buttons').innerHTML = `<button onclick="startRound()">다음 라운드로</button>`;
+    }
+</script>
+
+</body>
+</html>
